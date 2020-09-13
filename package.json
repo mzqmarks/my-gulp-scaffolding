@@ -52,7 +52,8 @@
     "gulp-imagemin": "^7.1.0",
     "gulp-load-plugins": "^2.0.4",
     "gulp-sass": "^4.1.0",
-    "gulp-swig": "^0.9.1"
+    "gulp-swig": "^0.9.1",
+    "gulp-useref": "^4.0.1"
   },
   "engines": {
     "node": ">=6"

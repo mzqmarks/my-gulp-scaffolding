@@ -1,6 +1,6 @@
 // 实现这个项目的构建任务
 
-const { src, dest, parallel, series } = require('gulp')
+const { src, dest, parallel, series, watch } = require('gulp')
 // 删除文件
 const del = require('del')
 // 开发服务器
@@ -58,6 +58,7 @@ const style = () => {
     return src('src/assets/styles/*.scss', { base: 'src'})
         .pipe(plugins.sass({ outputStyle: 'expanded'}))
         .pipe(dest('dist'))
+        .pipe(bs.reload({ stream: true }))
 }
 
 // 编译 JS 文件
@@ -65,6 +66,7 @@ const script = ()=> {
     return src('src/assets/scripts/*.js', { base: 'src'})
         .pipe(plugins.babel({presets: ['@babel/preset-env']}))
         .pipe(dest('dist'))
+        .pipe(bs.reload({ stream: true }))
 }
 
 // 编译 html 文件
@@ -72,6 +74,7 @@ const page = () => {
     return src('src/*.html', { base: 'src'})
         .pipe(plugins.swig(data))
         .pipe(dest('dist'))
+        .pipe(bs.reload({ stream: true }))
 }
 
 // 压缩图片
@@ -96,8 +99,22 @@ const extra = () => {
 
 // 开启服务器
 const serve = () => {
+  // 监听文件变化
+  watch('src/assets/styles/*.scss', style)
+  watch('src/assets/scripts/*.js', script)
+  watch('src/*.html', page)
+  // 开发阶段不用每次都监听变化所以将他们组合成一个任务
+  // watch('src/assets/images/**', image)
+  // watch('src/assets/fonts/**', font)
+  // watch('public/**', extra)
+  watch([
+    'src/assets/images/**',
+    'src/assets/fonts/**',
+    'public/**'
+  ], bs.reload)
+
   bs.init({
-    files: 'dist/**',
+    // files: 'dist/**', // 监听 dist 文件夹下所有文件的变化
     server: {
       baseDir: 'dist',
       routes: {
@@ -107,11 +124,21 @@ const serve = () => {
   })
 }
 
-const compile = parallel(style, script, page, image, font)
-const build = series(clean, parallel(compile, extra))
+// useref 打包文件引用路径处理
+const useref = () => {
+  return src('dist/*.html', { base: 'dist' })
+    .pipe(plugins.useref({ searchPath: ['dist', '.'] }))
+    .pipe(dest('dist'))
+}
+
+const compile = parallel(style, script, page, )
+const build = series(clean, parallel(compile,image, font, extra))
+const develop = series(compile, serve)
 module.exports = {
     compile,
     build,
     clean,
-    serve
+    serve,
+    develop,
+    useref
 }
