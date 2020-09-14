@@ -50,14 +50,14 @@ const data = {
 }
 // 删除文件
 const clean = () => {
-  return del(['dist'])
+  return del(['dist', 'temp'])
 }
 
 // 编译样式
 const style = () => {
     return src('src/assets/styles/*.scss', { base: 'src'})
         .pipe(plugins.sass({ outputStyle: 'expanded'}))
-        .pipe(dest('dist'))
+        .pipe(dest('temp')) // 创建一个临时 temp 文件夹
         .pipe(bs.reload({ stream: true }))
 }
 
@@ -65,7 +65,7 @@ const style = () => {
 const script = ()=> {
     return src('src/assets/scripts/*.js', { base: 'src'})
         .pipe(plugins.babel({presets: ['@babel/preset-env']}))
-        .pipe(dest('dist'))
+        .pipe(dest('temp'))
         .pipe(bs.reload({ stream: true }))
 }
 
@@ -73,7 +73,7 @@ const script = ()=> {
 const page = () => {
     return src('src/*.html', { base: 'src'})
         .pipe(plugins.swig(data))
-        .pipe(dest('dist'))
+        .pipe(dest('temp'))
         .pipe(bs.reload({ stream: true }))
 }
 
@@ -114,9 +114,10 @@ const serve = () => {
   ], bs.reload)
 
   bs.init({
+    notify: false,
     // files: 'dist/**', // 监听 dist 文件夹下所有文件的变化
     server: {
-      baseDir: 'dist',
+      baseDir: ['temp', 'src', 'public'],
       routes: {
         '/node_modules': 'node_modules'
       }
@@ -126,13 +127,30 @@ const serve = () => {
 
 // useref 打包文件引用路径处理
 const useref = () => {
-  return src('dist/*.html', { base: 'dist' })
-    .pipe(plugins.useref({ searchPath: ['dist', '.'] }))
+  return src('temp/*.html', { base: 'temp' })
+    .pipe(plugins.useref({ searchPath: ['temp', '.'] }))
+
+    // 压缩三种类型文件
+    .pipe(plugins.if(/\.js$/, plugins.uglify()))
+    .pipe(plugins.if(/\.css$/, plugins.cleanCss()))
+    .pipe(plugins.if(/\.html$/, plugins.htmlmin({
+      collapseWhitespace: true,
+      minifyCss: true,
+      minifyJs: true
+    })))
     .pipe(dest('dist'))
 }
 
 const compile = parallel(style, script, page, )
-const build = series(clean, parallel(compile,image, font, extra))
+const build = series(
+  clean, 
+  parallel(
+    series(compile, useref),
+    image, 
+    font, 
+    extra
+  )
+)
 const develop = series(compile, serve)
 module.exports = {
     compile,
